@@ -93,20 +93,21 @@ rule extract:
 checkpoint haploflow:
     threads: 10
     input:
-             r1 = rules.extract.output.entero_r1,
-             r2 = rules.extract.output.entero_r2
+        r1 = rules.extract.output.entero_r1,
+        r2 = rules.extract.output.entero_r2
     output:
         status = output + "haploflow/{sample}.haploflow.status"
     params:
         output_dir = output + "haploflow/{sample}",
-        min_contig_size = 100
+        min_contig_size = 100,
+
     conda:
         "haploflow"
     shell:"""
         haploflow \
         --read-file {input.r1} {input.r2} \
         --filter {params.min_contig_size} \
-        --out {params.output_dir}
+        --out {params.output_dir} 2>&1 {output.status}
         touch {output.status}
         """
 
