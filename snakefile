@@ -94,6 +94,7 @@ checkpoint haploflow:
         "haploflow"
     shell:"""
         touch {output.status}
+        echo $CONDA_DEFAULT_ENV
         haploflow --read-file \
         {input.r1} \
         {input.r2} \
