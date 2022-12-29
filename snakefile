@@ -37,6 +37,8 @@ rule kraken:
         outdir = "analysis/{sample}/",
         classified_reads = output + "kraken/{sample}_#_classified.fastq"
     threads: 20
+    conda:
+        "kraken"
     shell:"""
     touch {output.status}
     kraken2 \
@@ -64,6 +66,8 @@ rule extract:
         classified_r1 = output + "kraken/{sample}__1_classified.fastq",
         classified_r2 = output + "kraken/{sample}__2_classified.fastq",
         taxid = 464095 # picornavirus taxon id
+    conda:
+        "kraken"
     shell:"""
     touch {output.status}
     python extract_kraken_reads.py \
@@ -86,6 +90,8 @@ checkpoint haploflow:
         status = output + "haploflow/{sample}.haploflow.status"
     params:
         output_dir = output + "haploflow/{sample}"
+    conda:
+        "haploflow"
     shell:"""
         touch {output.status}
         haploflow --read-file \
@@ -122,6 +128,8 @@ rule abricate:
     params:
         minid = 10
     threads: 5
+    conda:
+        "bowtieabricate"
     shell:"""
     abricate {input.fasta} \
     --db entero_wgfull \
@@ -148,35 +156,39 @@ rule filter_fasta:
                 record.description = ""
                 SeqIO.write(record, filtered, "fasta")
 
-# rule build_index:
-#   input:
-#       rules.filter_fasta.output
-#   output:
-#       output + "filtered/{sample}.status.index"
-#   params:
-#       basename = output + "filtered/{sample}.filtered.fasta.index"
-#   shell:"""
-#   bowtie2-build -q {input} {params.basename}
-#   touch {output}
-#   """
+rule build_index:
+    input:
+      rules.filter_fasta.output
+    output:
+        output + "filtered/{sample}.status.index"
+    params:
+        basename = output + "filtered/{sample}.filtered.fasta.index"
+    conda:
+        "bowtieabricate"
+    shell:"""
+    bowtie2-build -q {input} {params.basename}
+    touch {output}
+    """
 
-# rule align_reads:
-#   input:
-#       assembly = rules.filter_fasta.output,
-#       r1 = rules.haploflow.input.r1,
-#       r2 = rules.haploflow.input.r2
-#   output:
-#       bam = output + "aligned/{sample}.bam",
-#       stats = output + "aligned/{sample}.statistics"
-#   threads: 20
-#   shell:"""
-#   bowtie2 -q \
-#   --no-unal \
-#   -p {threads} \
-#   -x {input.assembly}.index \
-#   -1 {input.r1} -2 {input.r2} \
-#   2> {output.stats} \
-#   | samtools view -bS - \
-#   | samtools sort -@ {threads} - 1> {output.bam} 2> /dev/null
-#   samtools index {output.bam}
-#   """
+rule align_reads:
+  input:
+      assembly = rules.filter_fasta.output,
+      r1 = rules.haploflow.input.r1,
+      r2 = rules.haploflow.input.r2
+  output:
+      bam = output + "aligned/{sample}.bam",
+      stats = output + "aligned/{sample}.statistics"
+  threads: 20
+  conda:
+      "bowtieabricate"
+  shell:"""
+  bowtie2 -q \
+  --no-unal \
+  -p {threads} \
+  -x {input.assembly}.index \
+  -1 {input.r1} -2 {input.r2} \
+  2> {output.stats} \
+  | samtools view -bS - \
+  | samtools sort -@ {threads} - 1> {output.bam} 2> /dev/null
+  samtools index {output.bam}
+  """
