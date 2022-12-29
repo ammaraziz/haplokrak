@@ -234,7 +234,7 @@ rule classified_align_reads:
   bowtie2 -q \
   --no-unal \
   -p {threads} \
-  -x {input.reference}.index \
+  -x {input.reference} \
   -1 {input.r1} -2 {input.r2} \
   2> {output.stats} \
   | samtools view -bS - \
