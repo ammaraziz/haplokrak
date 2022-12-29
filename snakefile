@@ -69,7 +69,7 @@ rule extract:
     conda:
         "kraken"
     shell:"""
-    python extract_kraken_reads.py \
+    python scripts/extract_kraken_reads.py \
     -1 {params.classified_r1} \
     -2 {params.classified_r2} \
     -k {input.kraken_output} \
