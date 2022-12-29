@@ -69,7 +69,6 @@ rule extract:
     conda:
         "kraken"
     shell:"""
-    touch {output.status}
     python extract_kraken_reads.py \
     -1 {params.classified_r1} \
     -2 {params.classified_r2} \
@@ -78,7 +77,9 @@ rule extract:
     -t {params.taxid} \
     -o {output.entero_r1} \
     -o2 {output.entero_r2} \
+    --fastq-output \
     --include-children
+    touch {output.status}
     """
 
 checkpoint haploflow:
@@ -93,12 +94,12 @@ checkpoint haploflow:
     conda:
         "haploflow"
     shell:"""
-        touch {output.status}
         echo $CONDA_DEFAULT_ENV
         haploflow --read-file \
         {input.r1} \
         {input.r2} \
         --out {params.output_dir}
+        touch {output.status}
         """
 
 def get_haplo_data(wildcards):
