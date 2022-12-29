@@ -19,8 +19,8 @@ rule all:
         expand(output + "haploflow/{sample}.haploflow.status", sample = SAMPLES),
         expand(output + "aggregated/{sample}.fasta", sample = SAMPLES),
         # abricate
-        #expand(output + "abricate/{sample}.abricate.results", sample = SAMPLES),
-        # expand(output + "filtered/{sample}.filtered.fasta", sample = SAMPLES),
+        expand(output + "abricate/{sample}.results", sample = SAMPLES),
+        expand(output + "filtered/{sample}.fasta", sample = SAMPLES),
         # # bowtie2
         # expand(output + "bowtie/{sample}.bam", sample = SAMPLES)
 
@@ -38,7 +38,7 @@ rule kraken:
         classified_reads = output + "kraken/{sample}_#_classified.fastq"
     threads: 20
     shell:"""
-	touch {output.status}
+    touch {output.status}
     kraken2 \
     --db {params.krakdb} \
     --threads {threads} \
@@ -78,21 +78,21 @@ rule extract:
     """
 
 checkpoint haploflow:
-	threads: 10
-	input:
+    threads: 10
+    input:
              r1 = rules.extract.output.entero_r1,
              r2 = rules.extract.output.entero_r2
-	output:
-		status = output + "haploflow/{sample}.haploflow.status"
-	params:
-		output_dir = output + "haploflow/{sample}"
-	shell:"""
-		touch {output.status}
-		haploflow --read-file \
-		{input.r1} \
-		{input.r2} \
-		--out {params.output_dir}
-		"""
+    output:
+        status = output + "haploflow/{sample}.haploflow.status"
+    params:
+        output_dir = output + "haploflow/{sample}"
+    shell:"""
+        touch {output.status}
+        haploflow --read-file \
+        {input.r1} \
+        {input.r2} \
+        --out {params.output_dir}
+        """
 
 def get_haplo_data(wildcards):
   checkpoint_output = checkpoints.haploflow.get(**wildcards).output[0]
@@ -114,69 +114,69 @@ rule aggregate_haploflow:
         cp {input} {output}
         """
 
-# rule abricate:
-# 	input:
-# 		output + "aggregated/{sample}.fasta"
-# 	output:
-# 		output + "abricate/{sample}.results"
-# 	params:
-# 		minid = 10
-# 	threads: 5
-# 	shell:"""
-# 	abricate {input} \
-# 	--db entero_wgfull \
-# 	--minid {params.minid} \
-# 	--threads {threads} > {output} 
-# 	"""
+rule abricate:
+    input:
+        fasta = output + "aggregated/{sample}.fasta"
+    output:
+        results = output + "abricate/{sample}.results"
+    params:
+        minid = 10
+    threads: 5
+    shell:"""
+    abricate {input.fasta} \
+    --db entero_wgfull \
+    --minid {params.minid} \
+    --threads {threads} > {output.results} 
+    """
 
-# # rule needs reworking
-# # must combine the same taxid together
-# rule filter_fasta:
-# 	input:
-# 		abricate = rules.abricate.output,
-# 		assembly = rules.aggregate_haploflow.output
-# 	output:
-# 		output + "filtered/{sample}.filtered.fasta"
-# 	run:
-# 		df = pandas.read_csv(input[0], sep="\t")
-# 		wanted = {df['SEQUENCE'][0] : df['RESISTANCE'][0]}
-# 		records = (r for r in SeqIO.parse(input[1], "fasta") if r.id in wanted.keys())	
+# rule needs reworking
+# must combine the same taxid together
+rule filter_fasta:
+    input:
+        abricate = rules.abricate.output,
+        assembly = rules.aggregate_haploflow.output
+    output:
+        output + "filtered/{sample}.fasta"
+    run:
+        df = pandas.read_csv(input[0], sep="\t")
+        wanted = {df['SEQUENCE'][0] : df['RESISTANCE'][0]}
+        records = (r for r in SeqIO.parse(input[1], "fasta") if r.id in wanted.keys())  
 
-# 		with open(output[0],'a') as filtered:
-# 			for record in records:
-# 				record.id = f"{record.id}|{wanted[record.id]}"		
-# 				record.description = ""
-# 				SeqIO.write(record, filtered, "fasta")
+        with open(output[0],'a') as filtered:
+            for record in records:
+                record.id = f"{record.id}|{wanted[record.id]}"      
+                record.description = ""
+                SeqIO.write(record, filtered, "fasta")
 
 # rule build_index:
-# 	input:
-# 		rules.filter_fasta.output
-# 	output:
-# 		output + "filtered/{sample}.status.index"
-# 	params:
-# 		basename = output + "filtered/{sample}.filtered.fasta.index"
-# 	shell:"""
-# 	bowtie2-build -q {input} {params.basename}
-# 	touch {output}
-# 	"""
+#   input:
+#       rules.filter_fasta.output
+#   output:
+#       output + "filtered/{sample}.status.index"
+#   params:
+#       basename = output + "filtered/{sample}.filtered.fasta.index"
+#   shell:"""
+#   bowtie2-build -q {input} {params.basename}
+#   touch {output}
+#   """
 
 # rule align_reads:
-# 	input:
-# 		assembly = rules.filter_fasta.output,
-# 		r1 = rules.haploflow.input.r1,
-# 		r2 = rules.haploflow.input.r2
-# 	output:
-# 		bam = output + "aligned/{sample}.bam",
-# 		stats = output + "aligned/{sample}.statistics"
-# 	threads: 20
-# 	shell:"""
-# 	bowtie2 -q \
-# 	--no-unal \
-# 	-p {threads} \
-# 	-x {input.assembly}.index \
-# 	-1 {input.r1} -2 {input.r2} \
-# 	2> {output.stats} \
-# 	| samtools view -bS - \
-# 	| samtools sort -@ {threads} - 1> {output.bam} 2> /dev/null
-# 	samtools index {output.bam}
-# 	"""
+#   input:
+#       assembly = rules.filter_fasta.output,
+#       r1 = rules.haploflow.input.r1,
+#       r2 = rules.haploflow.input.r2
+#   output:
+#       bam = output + "aligned/{sample}.bam",
+#       stats = output + "aligned/{sample}.statistics"
+#   threads: 20
+#   shell:"""
+#   bowtie2 -q \
+#   --no-unal \
+#   -p {threads} \
+#   -x {input.assembly}.index \
+#   -1 {input.r1} -2 {input.r2} \
+#   2> {output.stats} \
+#   | samtools view -bS - \
+#   | samtools sort -@ {threads} - 1> {output.bam} 2> /dev/null
+#   samtools index {output.bam}
+#   """
