@@ -3,6 +3,7 @@ analysis/*
 data/*
 .snakemake/*
 .DS_Store
+*.bt2
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
