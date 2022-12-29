@@ -10,6 +10,9 @@ SAMPLE_NAME, SAMPLE_NUMBER, PAIR = glob_wildcards(input_directory + "/{sample_na
 SAMPLES = list(set([i + "_" + x for i, x in zip(SAMPLE_NAME, SAMPLE_NUMBER)]))
 #print(SAMPLES)
 
+# get abricate 
+# (abricate) 2>&1 | grep "datadir" | egrep -o "/.+/\w{2}"
+
 rule all:
     input:
         # kraken
