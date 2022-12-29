@@ -24,8 +24,13 @@ rule all:
         # abricate
         expand(output + "abricate/{sample}.results", sample = SAMPLES),
         expand(output + "filtered/{sample}.fasta", sample = SAMPLES),
-        # # bowtie2
+        # # bowtie2 denovo
         # expand(output + "bowtie/{sample}.bam", sample = SAMPLES)
+        # bowtie2 classified
+        expand(output + "align/classified/status"),
+        expand(output + "aligned/classified/{sample}.bam", sample = SAMPLES),
+        expand(output + "aligned/classified/{sample}.statistics", sample = SAMPLES)
+
 
 rule kraken:
     input:
@@ -137,7 +142,7 @@ rule abricate:
         "bowtieabricate"
     shell:"""
     abricate {input.fasta} \
-    --db entero_wgfull \
+    --db entero_wgf \
     --minid {params.minid} \
     --threads {threads} > {output.results} 
     """
@@ -161,13 +166,50 @@ rule filter_fasta:
                 record.description = ""
                 SeqIO.write(record, filtered, "fasta")
 
-rule build_index:
+# rule denovo_build_index:
+#     input:
+#       rules.filter_fasta.output
+#     output:
+#         output + "filtered/{sample}.status.index"
+#     params:
+#         basename = output + "filtered/{sample}.filtered.fasta.index"
+#     conda:
+#         "bowtieabricate"
+#     shell:"""
+#     bowtie2-build -q {input} {params.basename}
+#     touch {output}
+#     """
+
+# rule denovo_align_reads:
+#   input:
+#       assembly = rules.filter_fasta.output,
+#       r1 = rules.haploflow.input.r1,
+#       r2 = rules.haploflow.input.r2
+#   output:
+#       bam = output + "aligned/{sample}.bam",
+#       stats = output + "aligned/{sample}.statistics"
+#   threads: 20
+#   conda:
+#       "bowtieabricate"
+#   shell:"""
+#   bowtie2 -q \
+#   --no-unal \
+#   -p {threads} \
+#   -x {input.assembly}.index \
+#   -1 {input.r1} -2 {input.r2} \
+#   2> {output.stats} \
+#   | samtools view -bS - \
+#   | samtools sort -@ {threads} - 1> {output.bam} 2> /dev/null
+#   samtools index {output.bam}
+#   """
+
+rule classified_build_index:
     input:
-      rules.filter_fasta.output
+      "reference/entero_wgf/sequences"
     output:
-        output + "filtered/{sample}.status.index"
+        output + "align/classified/status"
     params:
-        basename = output + "filtered/{sample}.filtered.fasta.index"
+        basename = output + "reference/sequence.index"
     conda:
         "bowtieabricate"
     shell:"""
@@ -175,14 +217,14 @@ rule build_index:
     touch {output}
     """
 
-rule align_reads:
+rule classified_align_reads:
   input:
-      assembly = rules.filter_fasta.output,
-      r1 = rules.haploflow.input.r1,
-      r2 = rules.haploflow.input.r2
+      reference = "reference/entero_wgf/sequences",
+      r1 = rules.extract.output.entero_r1,
+      r2 = rules.extract.output.entero_r2
   output:
-      bam = output + "aligned/{sample}.bam",
-      stats = output + "aligned/{sample}.statistics"
+      bam = output + "aligned/classified/{sample}.bam",
+      stats = output + "aligned/classified/{sample}.statistics"
   threads: 20
   conda:
       "bowtieabricate"
