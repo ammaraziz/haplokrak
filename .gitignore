@@ -1,5 +1,6 @@
 db/*
 analysis/*
+data/*
 .snakemake/*
 
 

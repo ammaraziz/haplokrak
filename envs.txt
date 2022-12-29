@@ -1,0 +1,15 @@
+Install mamba for faster installation
+
+# haplokraken base env
+
+mamba create -n haplokrak -c anaconda -c conda-forge -c bioconda snakemake python=3.8
+
+# haploflow specific environment
+# use conda for this specifically
+
+conda create -n haploflow -c conda-forge -c bioconda python=3.8 boost-cpp=1.74.0 haploflow
+
+# abricate and bowtie2
+
+mamba create -n bowtieabricate -c bioconda bowtie2 abricate
+

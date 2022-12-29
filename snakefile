@@ -3,72 +3,72 @@ from pathlib import Path
 import pandas
 from Bio import SeqIO
 
-IFQ = "../data/"
+input_directory = "data/"
 output = "analysis/"
 
-SAMPLE_NAME, SAMPLE_NUMBER, PAIR = glob_wildcards(IFQ + "/{sample_name}_{sample_number}_{pair}_001.fastq.gz")
+SAMPLE_NAME, SAMPLE_NUMBER, PAIR = glob_wildcards(input_directory + "/{sample_name}_{sample_number}_{pair}_001.fastq.gz")
 SAMPLES = [i + "_" + x for i, x in zip(SAMPLE_NAME, SAMPLE_NUMBER)]
 print(SAMPLES)
 
 rule all:
     input:
-        expand(output + "{sample}/{sample}_kraken.status", sample = SAMPLES),
-        expand(output + "{sample}/{sample}_extract.status", sample = SAMPLES),
-        
-        expand(output + "{sample}/{sample}/{sample}.haploflow.status", sample = SAMPLES),
-        expand(output + "aggregated/{sample}/{sample}.haploflow.fasta", sample = SAMPLES),
+    	# kraken
+        expand(output + "kraken/{sample}_kraken.status", sample = SAMPLES),
+        expand(output + "kraken/{sample}_extract.status", sample = SAMPLES),
+        # haploflow
+        expand(output + "haploflow/{sample}.haploflow.status", sample = SAMPLES),
+        expand(output + "aggregated/{sample}.fasta", sample = SAMPLES),
+        # abricate
         expand(output + "abricate/{sample}.abricate.results", sample = SAMPLES),
         expand(output + "filtered/{sample}.filtered.fasta", sample = SAMPLES),
-        expand(output + "aligned/{sample}.bam", sample = SAMPLES)
+        # bowtie2
+        expand(output + "bowtie/{sample}.bam", sample = SAMPLES)
 
 rule kraken:
-    threads: 2
     input:
-        r1 = expand(IFQ + "{{sample}}_{pair}_001.fastq.gz", pair = ["R1"]),
-        r2 = expand(IFQ + "{{sample}}_{pair}_001.fastq.gz", pair = ["R2"])
+        r1 = expand(input_directory + "{{sample}}_{pair}_001.fastq.gz", pair = ["R1"]),
+        r2 = expand(input_directory + "{{sample}}_{pair}_001.fastq.gz", pair = ["R2"])
     output:
-        status = output + "{sample}/{sample}_kraken.status",
-        report = output + "{sample}/{sample}.report",
-        kraken_file = output + "{sample}/{sample}.kraken"
+        status = output + "kraken/{sample}_kraken.status",
+        kraken_report = output + "kraken/{sample}.report",
+        kraken_file = output + "kraken/{sample}.kraken"
     params:
         krakdb = "db/minikraken2/",
         outdir = "analysis/{sample}/",
-        classified_reads = output + "{sample}/{sample}_#_classified.fastq",
-        unclassified_reads = output + "{sample}/{sample}_#_unclassified.fastq"
+        classified_reads = output + "kraken/{sample}_#_classified.fastq"
     threads: 20
     shell:"""
 	touch {output.status}
-        kraken2 \
-        --db {params.krakdb} \
-        --threads {threads} \
-        --report {output.report} \
-        --unclassified-out {params.unclassified_reads} \
-        --classified-out {params.classified_reads} \
-        --output {output.kraken_file} \
-        --use-names \
-        --paired \
-        --gzip-compressed \
-        {input.r1} \
-        {input.r2}
+    kraken2 \
+    --db {params.krakdb} \
+    --threads {threads} \
+    --report {output.kraken_report} \
+    --classified-out {params.classified_reads} \
+    --output {output.kraken_file} \
+    --use-names \
+    --paired \
+    --gzip-compressed \
+    {input.r1} \
+    {input.r2}
     """
 
 rule extract:
     input:
-        classified_r1 = output + "{sample}/{sample}__1_classified.fastq",
-        classified_r2 = output + "{sample}/{sample}__2_classified.fastq",
-        kraken_output = output + "{sample}/{sample}.kraken",
-        kraken_report = output + "{sample}/{sample}.report"   
+        kraken_output = output + "kraken/{sample}.kraken",
+        kraken_report = output + "kraken/{sample}.report"   
     output:
-        entero_r1 = output + "{sample}/{sample}_entero_1.fastq",
-        entero_r2 = output + "{sample}/{sample}_entero_2.fastq",
-        status = output + "{sample}/{sample}_extract.status"
+        entero_r1 = output + "kraken/{sample}_entero_1.fastq",
+        entero_r2 = output + "kraken/{sample}_entero_2.fastq",
+        status = output + "kraken/{sample}_extract.status"
     params:
-        taxid = 464095
+        classified_r1 = output + "kraken/{sample}__1_classified.fastq",
+        classified_r2 = output + "kraken/{sample}__2_classified.fastq",
+        taxid = 464095 # picornavirus taxon id
     shell:"""
     touch {output.status}
     python extract_kraken_reads.py \
-    -1 {input.classified_r1} \
-    -2 {input.classified_r2} \
+    -1 {params.classified_r1} \
+    -2 {params.classified_r2} \
     -k {input.kraken_output} \
     -r {input.kraken_report} \
     -t {params.taxid} \
@@ -80,18 +80,21 @@ rule extract:
 checkpoint haploflow:
 	threads: 10
 	input:
-             r1 = rules.extract.output.entero_1,
-             r2 = rules.extract.output.entero_2
+             r1 = rules.extract.output.entero_r1,
+             r2 = rules.extract.output.entero_r2
 	output:
-		status = output + "{sample}/{sample}.status"
+		status = output + "haploflow/{sample}.haploflow.status"
 	params:
-		output_dir = output + "{sample}"
+		output_dir = output + "haploflow/{sample}"
 	shell:"""
-		haploflow --read-file {input.r1} {input.r2} --out {params.output_dir}
 		touch {output.status}
+		haploflow --read-file \
+		{input.r1} \
+		{input.r2} \
+		--out {params.output_dir}
 		"""
 
-def aggregate_input(wildcards):
+def get_haplo_data(wildcards):
   checkpoint_output = checkpoints.haploflow.get(**wildcards).output[0]
   
   # split paths
@@ -103,9 +106,9 @@ def aggregate_input(wildcards):
   return expand(folder / "contigs.fa",
               sample=glob_wildcards(os.path.join(folder, "contigs.fa")))
 
-rule aggregate:
+rule aggregate_haploflow:
     input:
-        aggregate_input
+        get_haplo_data
     output:
         output + "aggregated/{sample}.fasta"
     shell:"""
@@ -114,18 +117,25 @@ rule aggregate:
 
 rule abricate:
 	input:
-		rules.aggregate.output
+		rules.aggregate_haploflow.output
 	output:
 		output + "abricate/{sample}.results"
-	threads: 10
+	params:
+		minid = 10
+	threads: 5
 	shell:"""
-	abricate {input} --db entero_wgfull --minid 70 --threads {threads} > {output} 
+	abricate {input} \
+	--db entero_wgfull \
+	--minid {params.minid} \
+	--threads {threads} > {output} 
 	"""
 
+# rule needs reworking
+# must combine the same taxid together
 rule filter_fasta:
 	input:
 		abricate = rules.abricate.output,
-		assembly = rules.aggregate.output
+		assembly = rules.aggregate_haploflow.output
 	output:
 		output + "filtered/{sample}.filtered.fasta"
 	run:
