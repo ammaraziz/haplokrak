@@ -19,7 +19,7 @@ rule all:
         expand(output + "haploflow/{sample}.haploflow.status", sample = SAMPLES),
         expand(output + "aggregated/{sample}.fasta", sample = SAMPLES),
         # abricate
-        expand(output + "abricate/{sample}.abricate.results", sample = SAMPLES),
+        #expand(output + "abricate/{sample}.abricate.results", sample = SAMPLES),
         # expand(output + "filtered/{sample}.filtered.fasta", sample = SAMPLES),
         # # bowtie2
         # expand(output + "bowtie/{sample}.bam", sample = SAMPLES)
