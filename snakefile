@@ -114,20 +114,20 @@ rule aggregate_haploflow:
         cp {input} {output}
         """
 
-rule abricate:
-	input:
-		output + "aggregated/{sample}.fasta"
-	output:
-		output + "abricate/{sample}.results"
-	params:
-		minid = 10
-	threads: 5
-	shell:"""
-	abricate {input} \
-	--db entero_wgfull \
-	--minid {params.minid} \
-	--threads {threads} > {output} 
-	"""
+# rule abricate:
+# 	input:
+# 		output + "aggregated/{sample}.fasta"
+# 	output:
+# 		output + "abricate/{sample}.results"
+# 	params:
+# 		minid = 10
+# 	threads: 5
+# 	shell:"""
+# 	abricate {input} \
+# 	--db entero_wgfull \
+# 	--minid {params.minid} \
+# 	--threads {threads} > {output} 
+# 	"""
 
 # # rule needs reworking
 # # must combine the same taxid together
