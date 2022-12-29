@@ -90,14 +90,14 @@ checkpoint haploflow:
     output:
         status = output + "haploflow/{sample}.haploflow.status"
     params:
-        output_dir = output + "haploflow/{sample}"
+        output_dir = output + "haploflow/{sample}",
+        min_contig_size = 100
     conda:
         "haploflow"
     shell:"""
-        echo $CONDA_DEFAULT_ENV
-        haploflow --read-file \
-        {input.r1} \
-        {input.r2} \
+        haploflow \
+        --read-file {input.r1} {input.r2} \
+        --filter {params.min_contig_size} \
         --out {params.output_dir}
         touch {output.status}
         """
