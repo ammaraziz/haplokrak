@@ -7,12 +7,12 @@ input_directory = "data/"
 output = "analysis/"
 
 SAMPLE_NAME, SAMPLE_NUMBER, PAIR = glob_wildcards(input_directory + "/{sample_name}_{sample_number}_{pair}_001.fastq.gz")
-SAMPLES = [i + "_" + x for i, x in zip(set(SAMPLE_NAME), (SAMPLE_NUMBER))]
+SAMPLES = list(set([i + "_" + x for i, x in zip(SAMPLE_NAME, SAMPLE_NUMBER)]))
 print(SAMPLES)
 
 rule all:
     input:
-    	# kraken
+        # kraken
         expand(output + "kraken/{sample}_kraken.status", sample = SAMPLES),
         expand(output + "kraken/{sample}_extract.status", sample = SAMPLES),
         # haploflow
