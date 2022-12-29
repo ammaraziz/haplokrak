@@ -19,7 +19,7 @@ rule all:
         expand(output + "kraken/{sample}_kraken.status", sample = SAMPLES),
         expand(output + "kraken/{sample}_extract.status", sample = SAMPLES),
         # haploflow
-        expand(output + "haploflow/{sample}.haploflow.status", sample = SAMPLES),
+        expand(output + "haploflow/{sample}/haploflow.status", sample = SAMPLES),
         expand(output + "aggregated/{sample}.fasta", sample = SAMPLES),
         # abricate
         expand(output + "abricate/{sample}.results", sample = SAMPLES),
@@ -96,7 +96,7 @@ checkpoint haploflow:
         r1 = rules.extract.output.entero_r1,
         r2 = rules.extract.output.entero_r2
     output:
-        status = output + "haploflow/{sample}.haploflow.status"
+        status = output + "haploflow/{sample}/haploflow.status"
     params:
         output_dir = output + "haploflow/{sample}",
         min_contig_size = 100,
@@ -119,6 +119,7 @@ def get_haplo_data(wildcards):
   name = path.name.split(".")[0]
   folder = path.parent
   # return 
+  print(folder)
   return expand(folder / "contigs.fa",
               sample=glob_wildcards(os.path.join(folder, "contigs.fa")))
 
@@ -233,7 +234,7 @@ rule classified_align_reads:
   bowtie2 -q \
   --no-unal \
   -p {threads} \
-  -x {input.assembly}.index \
+  -x {input.reference}.index \
   -1 {input.r1} -2 {input.r2} \
   2> {output.stats} \
   | samtools view -bS - \
