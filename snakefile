@@ -7,8 +7,8 @@ input_directory = "data/"
 output = "analysis/"
 
 SAMPLE_NAME, SAMPLE_NUMBER, PAIR = glob_wildcards(input_directory + "/{sample_name}_{sample_number}_{pair}_001.fastq.gz")
-SAMPLES = [i + "_" + x for i, x in zip(SAMPLE_NAME, SAMPLE_NUMBER)]
-print(SAMPLE_NAME)
+SAMPLES = [i + "_" + x for i, x in zip(set(SAMPLE_NAME), (SAMPLE_NUMBER))]
+print(SAMPLES)
 
 rule all:
     input:
